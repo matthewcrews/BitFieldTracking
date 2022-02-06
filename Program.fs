@@ -59,7 +59,7 @@ type DoubleIndex =
 type Benchmarks () =
 
     let testIndexCount = 1_000_000
-    let indexRange = 128
+    let indexRange = 64
     let rng = Random 123
 
     let testIndexes =
@@ -84,19 +84,19 @@ type Benchmarks () =
         boolArrayIndex
 
 
-    // [<Benchmark>]
-    // member _.Int64Index () =
-    //     let mutable int64Index = Int64Index.Create ()
+    [<Benchmark>]
+    member _.Int64Index () =
+        let mutable int64Index = Int64Index.Create ()
         
-    //     for i = 0 to testIndexes.Length - 1 do
-    //         let testIndex = testIndexes[i]
-    //         if int64Index.IsSet testIndex then
-    //             // Real world we would do work here and then flip the case
-    //             int64Index.Set testIndex
-    //         else
-    //             int64Index.UnSet testIndex
+        for i = 0 to testIndexes.Length - 1 do
+            let testIndex = testIndexes[i]
+            if int64Index.IsSet testIndex then
+                // Real world we would do work here and then flip the case
+                int64Index.Set testIndex
+            else
+                int64Index.UnSet testIndex
 
-    //     int64Index
+        int64Index
 
 
     [<Benchmark>]
