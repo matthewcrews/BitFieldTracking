@@ -6,8 +6,14 @@ open BenchmarkDotNet.Diagnosers
 
 #nowarn "9" // Yes, I'm using pointers
 
+// From Bartosz Sypytkowski blogpost:
+// https://bartoszsypytkowski.com/writing-high-performance-f-code/
+let inline stackalloc<'a when 'a: unmanaged> (length: int): Span<'a> =
+    let p = NativePtr.stackalloc<'a> length |> NativePtr.toVoidPtr
+    Span<'a>(p, length)
+
 [<Struct>]
-type Int64Index =
+type Int64Tracker =
     private {
         mutable Value : int64
     }
@@ -15,7 +21,7 @@ type Int64Index =
         { Value = 0L }
 
     member this.IsSet (position: int) =
-        (this.Value &&& (1L <<< position)) <> 0 
+        (this.Value &&& (1L <<< position)) <> 0L
 
     member this.Set (position: int) =
         this.Value <- (1L <<< position) ||| this.Value
@@ -24,42 +30,11 @@ type Int64Index =
         this.Value <- ~~~ (1 <<< position) &&& this.Value
 
 
-[<Struct>]
-type DoubleIndex =
-    private {
-        mutable Lower : int64
-        mutable Upper : int64
-    }
-    static member Create () =
-        {
-            Lower = 0L
-            Upper = 0L
-        }
-
-    member this.IsSet (position: int) =
-        if position < 64 then
-            (this.Lower &&& (1 <<< position)) <> 0
-        else
-            (this.Upper &&& (1 <<< (position - 64))) <> 0
-
-    member this.Set (position: int) =
-        if position < 64 then
-            this.Lower <- (1L <<< position) ||| this.Lower
-        else
-            this.Upper <- (1L <<< position) ||| this.Upper
-
-    member this.UnSet (position: int) =
-        if position < 64 then
-            this.Lower <- ~~~ (1 <<< position) &&& this.Lower
-        else
-            this.Upper <- ~~~ (1 <<< position) &&& this.Upper
-
-
 [<MemoryDiagnoser>]
 type Benchmarks () =
 
     let testIndexCount = 1_000_000
-    let indexRange = 64
+    let indexRange = 50
     let rng = Random 123
 
     let testIndexes =
@@ -70,68 +45,79 @@ type Benchmarks () =
 
 
     [<Benchmark>]
-    member _.BoolArrayIndex () =
-        let boolArrayIndex = Array.create indexRange false
+    member _.SetTracker () =
+        let mutable tracker = Set.empty
 
         for i = 0 to testIndexes.Length - 1 do
             let testIndex = testIndexes[i]
-            if boolArrayIndex[testIndex] = false then
+            if tracker.Contains testIndex then
                 // Real world we would do work here and then flip the case
-                boolArrayIndex[testIndex] <- true
+                tracker <- tracker.Add testIndex
             else
-                boolArrayIndex[testIndex] <- false
+                tracker <- tracker.Remove testIndex
 
-        boolArrayIndex
+        tracker
+
+    [<Benchmark>]
+    member _.HashSetTracker () =
+        let mutable tracker = Collections.Generic.HashSet ()
+
+        for i = 0 to testIndexes.Length - 1 do
+            let testIndex = testIndexes[i]
+            if tracker.Contains testIndex then
+                // Real world we would do work here and then flip the case
+                tracker.Add testIndex |> ignore
+            else
+                tracker.Remove testIndex |> ignore
+
+        tracker
+
+    [<Benchmark>]
+    member _.BoolArrayTracker () =
+        let tracker = Array.create indexRange false
+
+        for i = 0 to testIndexes.Length - 1 do
+            let testIndex = testIndexes[i]
+            if tracker[testIndex] = false then
+                // Real world we would do work here and then flip the case
+                tracker[testIndex] <- true
+            else
+                tracker[testIndex] <- false
+
+        tracker
 
 
     [<Benchmark>]
-    member _.Int64Index () =
-        let mutable int64Index = Int64Index.Create ()
+    member _.Int64Tracker () =
+        let mutable tracker = Int64Tracker.Create ()
         
         for i = 0 to testIndexes.Length - 1 do
             let testIndex = testIndexes[i]
-            if int64Index.IsSet testIndex then
+            if tracker.IsSet testIndex then
                 // Real world we would do work here and then flip the case
-                int64Index.Set testIndex
+                tracker.Set testIndex
             else
-                int64Index.UnSet testIndex
+                tracker.UnSet testIndex
 
-        int64Index
+        tracker
 
 
     [<Benchmark>]
-    member _.DoubleIndex () =
-        let mutable doubleIndex = DoubleIndex.Create ()
-        
-        for i = 0 to testIndexes.Length - 1 do
-            let testIndex = testIndexes[i]
-            if doubleIndex.IsSet testIndex then
-                // Real world we would do work here and then flip the case
-                doubleIndex.Set testIndex
-            else
-                doubleIndex.UnSet testIndex
-
-        doubleIndex
-
-
-    [<Benchmark>]
-    member _.SpanIndex () =
+    member _.SpanInt64Tracker () =
         let bitsPerInt64 = 64
         let requiredInt64s = (indexRange + bitsPerInt64 - 1) / bitsPerInt64
-        let mem = NativePtr.stackalloc<int64> requiredInt64s
-        let mem2 = mem |> NativePtr.toVoidPtr
-        let spanIndex = Span<int64>(mem2, requiredInt64s)
+        let spanIndex = stackalloc<int64> requiredInt64s
 
         for i = 0 to testIndexes.Length - 1 do
             let testIndex = testIndexes[i]
-            let subRegion = testIndex / bitsPerInt64
-            let subIndex = testIndex % bitsPerInt64
+            let int64Index = testIndex / bitsPerInt64
+            let bitIndex = testIndex % bitsPerInt64
 
-            if (spanIndex[subRegion] &&& (1 <<< subIndex)) <> 0 then
+            if (spanIndex[int64Index] &&& (1 <<< bitIndex)) <> 0 then
                 // Real world we would do work here and then flip the case
-                spanIndex[subRegion] <- (1 <<< subIndex) ||| spanIndex[subRegion]
+                spanIndex[int64Index] <- (1 <<< bitIndex) ||| spanIndex[int64Index]
             else
-                spanIndex[subRegion] <- ~~~ (1 <<< subIndex) &&& spanIndex[subRegion]
+                spanIndex[int64Index] <- ~~~ (1 <<< bitIndex) &&& spanIndex[int64Index]
 
         spanIndex
 
