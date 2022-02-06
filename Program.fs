@@ -1,4 +1,5 @@
 ﻿open System
+open System.Runtime.CompilerServices
 open FSharp.NativeInterop
 open BenchmarkDotNet.Attributes
 open BenchmarkDotNet.Running
@@ -17,7 +18,7 @@ type Int64Tracker =
     private {
         mutable Value : int64
     }
-    static member Create () =
+    static member Init () =
         { Value = 0L }
 
     member this.IsSet (position: int) =
@@ -52,9 +53,9 @@ type Benchmarks () =
             let testIndex = testIndexes[i]
             if tracker.Contains testIndex then
                 // Real world we would do work here and then flip the case
-                tracker <- tracker.Add testIndex
-            else
                 tracker <- tracker.Remove testIndex
+            else
+                tracker <- tracker.Add testIndex
 
         tracker
 
@@ -66,9 +67,9 @@ type Benchmarks () =
             let testIndex = testIndexes[i]
             if tracker.Contains testIndex then
                 // Real world we would do work here and then flip the case
-                tracker.Add testIndex |> ignore
-            else
                 tracker.Remove testIndex |> ignore
+            else
+                tracker.Add testIndex |> ignore
 
         tracker
 
@@ -78,48 +79,28 @@ type Benchmarks () =
 
         for i = 0 to testIndexes.Length - 1 do
             let testIndex = testIndexes[i]
-            if tracker[testIndex] = false then
+            if tracker[testIndex] then
                 // Real world we would do work here and then flip the case
-                tracker[testIndex] <- true
-            else
                 tracker[testIndex] <- false
+            else
+                tracker[testIndex] <- true
 
         tracker
 
 
     [<Benchmark>]
     member _.Int64Tracker () =
-        let mutable tracker = Int64Tracker.Create ()
+        let mutable tracker = Int64Tracker.Init ()
         
         for i = 0 to testIndexes.Length - 1 do
             let testIndex = testIndexes[i]
             if tracker.IsSet testIndex then
                 // Real world we would do work here and then flip the case
-                tracker.Set testIndex
-            else
                 tracker.UnSet testIndex
+            else
+                tracker.Set testIndex
 
         tracker
-
-
-    [<Benchmark>]
-    member _.SpanInt64Tracker () =
-        let bitsPerInt64 = 64
-        let requiredInt64s = (indexRange + bitsPerInt64 - 1) / bitsPerInt64
-        let spanIndex = stackalloc<int64> requiredInt64s
-
-        for i = 0 to testIndexes.Length - 1 do
-            let testIndex = testIndexes[i]
-            let int64Index = testIndex / bitsPerInt64
-            let bitIndex = testIndex % bitsPerInt64
-
-            if (spanIndex[int64Index] &&& (1 <<< bitIndex)) <> 0 then
-                // Real world we would do work here and then flip the case
-                spanIndex[int64Index] <- (1 <<< bitIndex) ||| spanIndex[int64Index]
-            else
-                spanIndex[int64Index] <- ~~~ (1 <<< bitIndex) &&& spanIndex[int64Index]
-
-        spanIndex
 
 
 [<EntryPoint>]
