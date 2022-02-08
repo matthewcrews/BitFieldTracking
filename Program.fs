@@ -35,7 +35,7 @@ type Int64Tracker =
 type Benchmarks () =
 
     let testIndexCount = 1_000_000
-    let indexRange = 200
+    let indexRange = 50
     let rng = Random 123
 
     let testIndexes =
@@ -43,6 +43,7 @@ type Benchmarks () =
             // Note: Next is exclusive on the upper bound
             rng.Next (0, indexRange) 
         |]
+
 
     [<Benchmark>]
     member _.SetTracker () =
@@ -58,6 +59,7 @@ type Benchmarks () =
 
         tracker
 
+
     [<Benchmark>]
     member _.HashSetTracker () =
         let mutable tracker = Collections.Generic.HashSet ()
@@ -72,9 +74,25 @@ type Benchmarks () =
 
         tracker
 
+
     [<Benchmark>]
     member _.BoolArrayTracker () =
         let tracker = Array.create indexRange false
+
+        for i = 0 to testIndexes.Length - 1 do
+            let testIndex = testIndexes[i]
+            if tracker[testIndex] then
+                // Real world we would do work here and then flip the case
+                tracker[testIndex] <- false
+            else
+                tracker[testIndex] <- true
+
+        tracker
+
+
+    [<Benchmark>]
+    member _.BitArrayTracker () =
+        let mutable tracker = System.Collections.BitArray(indexRange)
 
         for i = 0 to testIndexes.Length - 1 do
             let testIndex = testIndexes[i]
@@ -104,16 +122,16 @@ type Benchmarks () =
 
 
     [<Benchmark>]
-    member _.BitArrayTracker () =
-        let mutable tracker = System.Collections.BitArray(indexRange)
+    member _.Int64Tracker () =
+        let mutable tracker = Int64Tracker.Init ()
 
         for i = 0 to testIndexes.Length - 1 do
             let testIndex = testIndexes[i]
-            if tracker[testIndex] then
+            if tracker.IsSet testIndex then
                 // Real world we would do work here and then flip the case
-                tracker[testIndex] <- false
+                tracker.UnSet testIndex |> ignore
             else
-                tracker[testIndex] <- true
+                tracker.Set testIndex |> ignore
 
         tracker
 
