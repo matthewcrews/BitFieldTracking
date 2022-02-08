@@ -7,6 +7,8 @@ The use cases is limited to tracking less than 64 items which is why the `Int64T
 My current results on my machine are the following.
 
 ```
+// * Summary *
+
 BenchmarkDotNet=v0.13.1, OS=Windows 10.0.22000
 AMD Ryzen 9 3900X, 1 CPU, 24 logical and 12 physical cores
 .NET SDK=6.0.101
@@ -16,10 +18,12 @@ AMD Ryzen 9 3900X, 1 CPU, 24 logical and 12 physical cores
 
 |           Method |       Mean |     Error |    StdDev |      Gen 0 |     Allocated |
 |----------------- |-----------:|----------:|----------:|-----------:|--------------:|
-|       SetTracker | 130.889 ms | 1.7642 ms | 1.4732 ms | 27000.0000 | 226,813,932 B |
-|   HashSetTracker |  14.368 ms | 0.0613 ms | 0.0544 ms |          - |       2,800 B |
-| BoolArrayTracker |   5.017 ms | 0.0447 ms | 0.0418 ms |          - |          84 B |
-|     Int64Tracker |   3.979 ms | 0.0097 ms | 0.0081 ms |          - |           4 B |
+|       SetTracker | 133.889 ms | 2.6145 ms | 2.5678 ms | 27000.0000 | 226,815,978 B |
+|   HashSetTracker |  14.107 ms | 0.0586 ms | 0.0520 ms |          - |       2,800 B |
+| BoolArrayTracker |   4.938 ms | 0.0294 ms | 0.0260 ms |          - |          84 B |
+|  BitArrayTracker |   5.102 ms | 0.0545 ms | 0.0510 ms |          - |          68 B |
+|      SpanTracker |   4.140 ms | 0.0408 ms | 0.0382 ms |          - |           4 B |
+|     Int64Tracker |   4.073 ms | 0.0777 ms | 0.0895 ms |          - |           4 B |
 ```
 
 I welcome all suggestions and Pull requests if you have suggestions for how to improve the performance.
