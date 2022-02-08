@@ -31,6 +31,24 @@ type Int64Tracker =
         this.Value <- ~~~ (1 <<< position) &&& this.Value
 
 
+[<Struct>]
+type Int64TrackerEquals =
+    private {
+        mutable Value : int64
+    }
+    static member Init () =
+        { Value = 0L }
+
+    member this.IsSet (position: int) =
+        let test = (1L <<< position)
+        (this.Value &&& test) = test
+
+    member this.Set (position: int) =
+        this.Value <- (1L <<< position) ||| this.Value
+
+    member this.UnSet (position: int) =
+        this.Value <- ~~~ (1 <<< position) &&& this.Value
+
 [<MemoryDiagnoser>]
 type Benchmarks () =
 
@@ -45,52 +63,66 @@ type Benchmarks () =
         |]
 
 
-    [<Benchmark>]
-    member _.SetTracker () =
-        let mutable tracker = Set.empty
+    // [<Benchmark>]
+    // member _.SetTracker () =
+    //     let mutable tracker = Set.empty
 
-        for i = 0 to testIndexes.Length - 1 do
-            let testIndex = testIndexes[i]
-            if tracker.Contains testIndex then
-                // Real world we would do work here and then flip the case
-                tracker <- tracker.Remove testIndex
-            else
-                tracker <- tracker.Add testIndex
+    //     for i = 0 to testIndexes.Length - 1 do
+    //         let testIndex = testIndexes[i]
+    //         if tracker.Contains testIndex then
+    //             // Real world we would do work here and then flip the case
+    //             tracker <- tracker.Remove testIndex
+    //         else
+    //             tracker <- tracker.Add testIndex
 
-        tracker
+    //     tracker
 
-    [<Benchmark>]
-    member _.HashSetTracker () =
-        let mutable tracker = Collections.Generic.HashSet ()
+    // [<Benchmark>]
+    // member _.HashSetTracker () =
+    //     let mutable tracker = Collections.Generic.HashSet ()
 
-        for i = 0 to testIndexes.Length - 1 do
-            let testIndex = testIndexes[i]
-            if tracker.Contains testIndex then
-                // Real world we would do work here and then flip the case
-                tracker.Remove testIndex |> ignore
-            else
-                tracker.Add testIndex |> ignore
+    //     for i = 0 to testIndexes.Length - 1 do
+    //         let testIndex = testIndexes[i]
+    //         if tracker.Contains testIndex then
+    //             // Real world we would do work here and then flip the case
+    //             tracker.Remove testIndex |> ignore
+    //         else
+    //             tracker.Add testIndex |> ignore
 
-        tracker
+    //     tracker
 
-    [<Benchmark>]
-    member _.BoolArrayTracker () =
-        let tracker = Array.create indexRange false
+    // [<Benchmark>]
+    // member _.BoolArrayTracker () =
+    //     let tracker = Array.create indexRange false
 
-        for i = 0 to testIndexes.Length - 1 do
-            let testIndex = testIndexes[i]
-            if tracker[testIndex] then
-                // Real world we would do work here and then flip the case
-                tracker[testIndex] <- false
-            else
-                tracker[testIndex] <- true
+    //     for i = 0 to testIndexes.Length - 1 do
+    //         let testIndex = testIndexes[i]
+    //         if tracker[testIndex] then
+    //             // Real world we would do work here and then flip the case
+    //             tracker[testIndex] <- false
+    //         else
+    //             tracker[testIndex] <- true
 
-        tracker
+    //     tracker
 
 
     [<Benchmark>]
     member _.Int64Tracker () =
         let mutable tracker = Int64Tracker.Init ()
+        
+        for i = 0 to testIndexes.Length - 1 do
+            let testIndex = testIndexes[i]
+            if tracker.IsSet testIndex then
+                // Real world we would do work here and then flip the case
+                tracker.UnSet testIndex
+            else
+                tracker.Set testIndex
+
+        tracker
+
+    [<Benchmark>]
+    member _.Int64TrackerEquals () =
+        let mutable tracker = Int64TrackerEquals.Init ()
         
         for i = 0 to testIndexes.Length - 1 do
             let testIndex = testIndexes[i]
